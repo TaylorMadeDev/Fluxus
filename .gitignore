@@ -1,0 +1,76 @@
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Byte-compiled / optimized
+*.pyc
+*.pyo
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# ---------------------------
+# Virtual Environments
+# ---------------------------
+venv/
+.env/
+.venv/
+ENV/
+env/
+
+# ---------------------------
+# Logs
+# ---------------------------
+*.log
+
+# ---------------------------
+# OS Files
+# ---------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------
+# IDE / Editor
+# ---------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ---------------------------
+# Minecraft Runtime Files
+# ---------------------------
+logs/
+crash-reports/
+screenshots/
+resourcepacks/
+shaderpacks/
+
+# ---------------------------
+# Minescript Runtime
+# ---------------------------
+config.txt
+*.tmp
+*.cache
+
+# ---------------------------
+# Downloaded Scripts (optional)
+# Remove this if scripts should be versioned
+# ---------------------------
+downloads/
+installed_scripts/
+
+# ---------------------------
+# API Keys / Secrets
+# ---------------------------
+.env
+secrets.json
+apikey.txt
