@@ -1,0 +1,280 @@
+{
+  "module": "minescript_plus",
+  "metadata": {
+    "name": "Minescript Plus",
+    "version": "0.16.2-alpha",
+    "author": "RazrCraft",
+    "date": "2026-03-04",
+    "description": "User-friendly API that extends the Minescript mod with additional scripting functionality.",
+    "run_directly": false
+  },
+
+  "requirements": {
+    "v0.13+": {
+      "minecraft": "1.21.5 - 1.21.11",
+      "minescript": "5.0b6+",
+      "python": "3.10+",
+      "java_module": true,
+      "mappings_required": true,
+      "optional": [
+        "Fabric API (for Hud class)",
+        "lib_nbt v1 (Inventory.find_item)"
+      ]
+    },
+    "v0.12-": {
+      "minecraft": "Any version supported by Minescript",
+      "minescript": "5.0b3 or earlier",
+      "python": "3.10+",
+      "required": [
+        "lib_java v2"
+      ],
+      "optional": [
+        "lib_nbt v1"
+      ]
+    }
+  },
+
+  "installation": {
+    "steps": [
+      "Download minescript_plus.py",
+      "Place the file inside the /minescript folder",
+      "Ensure config.txt exists in the same folder"
+    ]
+  },
+
+  "imports": [
+    "Inventory",
+    "Screen",
+    "Gui",
+    "Key",
+    "Client",
+    "Player",
+    "Server",
+    "World",
+    "Trading",
+    "Hud",
+    "Util",
+    "Keybind",
+    "Event",
+    "input"
+  ],
+
+  "classes": {
+
+    "Inventory": {
+      "description": "Interact with player inventory and containers.",
+      "methods": {
+        "click_slot": {
+          "params": ["slot:int", "right_button:bool=false"],
+          "returns": "bool"
+        },
+        "shift_click_slot": {
+          "params": ["slot:int"],
+          "returns": "bool"
+        },
+        "inventory_hotbar_swap": {
+          "params": ["inv_slot:int", "hotbar_slot:int"],
+          "returns": "bool"
+        },
+        "open_targeted_chest": {
+          "params": [],
+          "returns": "bool"
+        },
+        "take_items": {
+          "params": ["slots:list[int]"],
+          "returns": "bool"
+        },
+        "find_item": {
+          "params": [
+            "item_id:str",
+            "cust_name:str",
+            "container:bool",
+            "try_open:bool"
+          ],
+          "returns": "int | None"
+        }
+      }
+    },
+
+    "Screen": {
+      "description": "Interact with Minecraft GUI screens.",
+      "methods": {
+        "wait_screen": {
+          "params": ["name:str", "delay:int"],
+          "returns": "bool"
+        },
+        "close_screen": {
+          "params": [],
+          "returns": "None"
+        }
+      }
+    },
+
+    "Gui": {
+      "description": "Manipulate titles, subtitles and actionbars.",
+      "methods": {
+        "get_title": { "returns": "str | None" },
+        "get_subtitle": { "returns": "str | None" },
+        "get_actionbar": { "returns": "str | None" },
+        "set_title": { "params": ["text:str"] },
+        "set_subtitle": { "params": ["text:str"] },
+        "set_actionbar": {
+          "params": ["text:str", "tinted:bool"]
+        },
+        "set_title_times": {
+          "params": ["fadeInTicks:int", "stayTicks:int", "fadeOutTicks:int"]
+        },
+        "reset_title_times": {},
+        "clear_titles": {}
+      }
+    },
+
+    "Key": {
+      "description": "Simulate keyboard input.",
+      "methods": {
+        "press_key": {
+          "params": ["key_name:str", "state:bool"]
+        }
+      }
+    },
+
+    "Client": {
+      "description": "Client-level operations.",
+      "methods": {
+        "pause_game": { "returns": "bool" },
+        "disconnect": {},
+        "is_local_server": { "returns": "bool" },
+        "is_multiplayer_server": { "returns": "bool" },
+        "get_options": { "returns": "GameOptions" }
+      }
+    },
+
+    "Player": {
+      "description": "Retrieve player information.",
+      "methods": {
+        "get_latency": { "returns": "int" },
+        "get_game_mode": { "returns": "str" },
+        "is_creative": { "returns": "bool" },
+        "is_survival": { "returns": "bool" },
+        "get_skin_url": { "returns": "str" },
+        "get_food_level": { "returns": "float" },
+        "get_saturation_level": { "returns": "float" },
+        "get_player_block_position": { "returns": "list[int]" },
+        "get_xp_levels": { "returns": "int" },
+        "get_experience_progress": { "returns": "float" }
+      }
+    },
+
+    "Server": {
+      "description": "Server information utilities.",
+      "methods": {
+        "is_local": { "returns": "bool" },
+        "get_ping": { "returns": "int | None" },
+        "is_lan": { "returns": "bool | None" },
+        "is_realm": { "returns": "bool | None" },
+        "get_tablist": { "returns": "list" }
+      }
+    },
+
+    "World": {
+      "description": "Retrieve world data.",
+      "methods": {
+        "is_raining": { "returns": "bool" },
+        "is_thundering": { "returns": "bool" },
+        "is_hardcore": { "returns": "bool" },
+        "get_difficulty": {},
+        "get_spawn_pos": {},
+        "get_game_time": { "returns": "int" },
+        "get_day_time": { "returns": "int" },
+        "get_sign_text": {},
+        "set_sign_text": {},
+        "find_nearest_entity": {},
+        "get_destroy_progress": { "returns": "float" },
+        "get_destroy_stage": { "returns": "int" }
+      }
+    },
+
+    "Trading": {
+      "description": "Interact with villager trading.",
+      "methods": {
+        "get_offers": {},
+        "get_offer": {},
+        "get_costA": {},
+        "get_costB": {},
+        "get_result": {},
+        "trade_offer": { "returns": "bool" }
+      }
+    },
+
+    "Hud": {
+      "description": "Render custom HUD elements.",
+      "requires": "Fabric API",
+      "methods": {
+        "add_text": {},
+        "update_text": {},
+        "remove_text": {},
+        "clear_texts": {},
+        "add_item": {},
+        "update_item": {},
+        "remove_item": {},
+        "clear_items": {},
+        "show_hud": {},
+        "show_text": {},
+        "show_item": {}
+      }
+    },
+
+    "Util": {
+      "description": "Utility functions.",
+      "methods": {
+        "get_job_id": {},
+        "get_clipboard": {},
+        "set_clipboard": {},
+        "get_distance": {},
+        "get_nbt": {},
+        "get_light_level": {},
+        "play_sound": {},
+        "get_soundevents": {},
+        "get_soundsource": {},
+        "show_toast": {}
+      }
+    },
+
+    "Keybind": {
+      "description": "Register custom keybind callbacks.",
+      "methods": {
+        "set_keybind": {},
+        "modify_keybind": {},
+        "remove_keybind": {}
+      }
+    }
+  },
+
+  "events": {
+    "on_title": "Title text change",
+    "on_subtitle": "Subtitle text change",
+    "on_actionbar": "Actionbar text change",
+    "on_open_screen": "Screen opened"
+  },
+
+  "utilities": {
+    "input": {
+      "description": "Reads input from Minecraft chat.",
+      "params": [
+        "prompt:str",
+        "save_history:bool"
+      ],
+      "returns": "str"
+    }
+  },
+
+  "notes": [
+    "This is an alpha release and may introduce breaking API changes.",
+    "Some classes expose the underlying Minecraft Java instance allowing direct method access."
+  ],
+
+  "license": {
+    "type": "MIT",
+    "copyright": "© 2025 RazrCraft"
+  }
+}
