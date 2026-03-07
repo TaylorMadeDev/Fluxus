@@ -286,10 +286,10 @@ class PluginsPanel(QFrame):
         h_layout.addWidget(title)
         h_layout.addStretch()
 
-        import_btn = QPushButton("+ Import .py")
+        import_btn = QPushButton("+ Import")
         import_btn.setObjectName("SmallButton")
         import_btn.setCursor(Qt.PointingHandCursor)
-        import_btn.setToolTip("Import a plugin .py file")
+        import_btn.setToolTip("Import a plugin file (.py or .pyj)")
         import_btn.clicked.connect(self._import_plugin)
         h_layout.addWidget(import_btn)
 
@@ -328,7 +328,7 @@ class PluginsPanel(QFrame):
         layout.addWidget(scroll, 1)
 
         # Drag & drop hint
-        hint = QLabel("💡 Drag-and-drop a .py plugin file to import it")
+        hint = QLabel("💡 Drag-and-drop a .py or .pyj plugin file to import it")
         hint.setStyleSheet(
             f"color: {COLORS['text_dim']}; font-size: 10px; font-family: 'Segoe UI';"
             f" padding: 6px 12px;"
@@ -378,7 +378,7 @@ class PluginsPanel(QFrame):
             self._list_layout.addWidget(card)
 
         if not plugins:
-            empty = QLabel("No plugins installed yet.\nClick '+ Import .py' to add one!")
+            empty = QLabel("No plugins installed yet.\nClick '+ Import' to add one!")
             empty.setAlignment(Qt.AlignCenter)
             empty.setStyleSheet(
                 f"color: {COLORS['text_dim']}; font-size: 12px; padding: 40px;"
@@ -412,7 +412,7 @@ class PluginsPanel(QFrame):
 
     def _import_plugin(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Import Plugin", "", "Python Files (*.py);;All Files (*)"
+            self, "Import Plugin", "", "Python Files (*.py *.pyj);;All Files (*)"
         )
         if path:
             self._install_plugin_file(path)
@@ -422,7 +422,7 @@ class PluginsPanel(QFrame):
         if not src.exists():
             return
         if src.suffix not in (".py", ".pyj"):
-            QMessageBox.warning(self, "Invalid File", "Plugins must be .py files.")
+            QMessageBox.warning(self, "Invalid File", "Plugins must be .py or .pyj files.")
             return
         dest = _PLUGINS_DIR / src.name
         _PLUGINS_DIR.mkdir(exist_ok=True)

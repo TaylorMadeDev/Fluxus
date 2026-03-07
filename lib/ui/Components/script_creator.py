@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from ..Colors.palette import COLORS
 from . import script_manifest as manifest
 from .script_manifest import SCRIPT_ICONS
+from .script_templates import get_import_statement
 
 
 class IconPicker(QFrame):
@@ -118,7 +119,7 @@ class ScriptCreatorDialog(QDialog):
             form.addWidget(self._label("Filename:"), row, 0)
             self._filename = QLineEdit()
             self._filename.setObjectName("SettingsInput")
-            self._filename.setPlaceholderText("my_script.py")
+            self._filename.setPlaceholderText("my_script.py or my_script.pyj")
             form.addWidget(self._filename, row, 1)
             row += 1
         else:
@@ -255,12 +256,15 @@ class ScriptCreatorDialog(QDialog):
                 self._filename.setStyleSheet(f"border-color: {COLORS['danger']};")
                 return
             try:
+                # Use appropriate import for .pyj vs .py
+                is_pyj = filename.endswith(".pyj")
+                import_line = get_import_statement(is_pyj)
                 boilerplate = (
                     f'# {meta["name"]}\n'
                     f'# Version: {meta["version"]}\n'
                     f'# Author: {meta["author"]}\n'
                     f'# {meta["description"]}\n'
-                    f'\nimport minescript\n\n'
+                    f'\n{import_line}\n\n'
                 )
                 path.write_text(boilerplate, encoding="utf-8")
                 meta["created_ts"] = time.time()

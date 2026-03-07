@@ -1,0 +1,11 @@
+# HelloPyjinn.pyj
+from system.pyj.minescript import *
+
+echo("Hello from Pyjinn!")
+pos = player_position()
+echo(f"You're at {pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f}")
+
+# Direct Java access
+Minecraft = JavaClass("net.minecraft.client.Minecraft")
+mc = Minecraft.getInstance()
+echo(f"FPS: {mc.getFps()}")

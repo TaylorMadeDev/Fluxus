@@ -792,11 +792,15 @@ class FluxusWindow(QWidget):
         palette = CommandPalette(actions, parent=self)
         palette.setWindowTitle("Select Template")
         def apply_template(name: str):
-            code = get_template(name)
+            # Check if current file is .pyj to use correct import
+            current_file = self.code_editor.get_current_file()
+            is_pyj = bool(current_file and current_file.endswith(".pyj"))
+            code = get_template(name, is_pyj=is_pyj)
             if code:
                 self.code_editor.set_content(code, None)
                 self._goto_page("editor")
-                self.toast.info(f"Template '{name}' loaded")
+                lang_hint = " (Pyjinn)" if is_pyj else ""
+                self.toast.info(f"Template '{name}' loaded{lang_hint}")
         palette.action_selected.connect(apply_template)
         palette.exec()
 

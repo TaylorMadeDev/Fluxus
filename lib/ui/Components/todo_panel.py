@@ -142,8 +142,8 @@ class TodoPanel(QFrame):
         root = Path(self._root)
         items = []
 
-        for f in root.rglob("*.py"):
-            if "__pycache__" in str(f):
+        for f in root.rglob("*.[p][y]*"):
+            if "__pycache__" in str(f) or f.suffix not in (".py", ".pyj"):
                 continue
             try:
                 lines = f.read_text(encoding="utf-8", errors="replace").splitlines()

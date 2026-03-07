@@ -153,10 +153,21 @@ def list_templates() -> dict[str, dict]:
     return dict(_TEMPLATES)
 
 
-def get_template(name: str) -> str:
-    """Return the code for a named template."""
-    return _TEMPLATES.get(name, {}).get("code", "")
+def get_template(name: str, is_pyj: bool = False) -> str:
+    """Return the code for a named template, with correct import for file type."""
+    code = _TEMPLATES.get(name, {}).get("code", "")
+    if is_pyj:
+        # Replace Python import with Pyjinn import
+        code = code.replace("import minescript", "from system.pyj.minescript import *")
+    return code
 
 
 def get_template_names() -> list[str]:
     return list(_TEMPLATES.keys())
+
+
+def get_import_statement(is_pyj: bool = False) -> str:
+    """Return the correct minescript import for Python or Pyjinn."""
+    if is_pyj:
+        return "from system.pyj.minescript import *"
+    return "import minescript"

@@ -231,7 +231,8 @@ def create_gui_script(script_path: str, values: dict[str, Any]) -> str:
     combined = injection + code
 
     tmp_dir = Path(script_path).parent
-    fd, tmp_path = tempfile.mkstemp(suffix=".py", dir=str(tmp_dir),
+    suffix = Path(script_path).suffix  # Preserve .py or .pyj
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix, dir=str(tmp_dir),
                                      prefix="_fluxus_gui_")
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(combined)

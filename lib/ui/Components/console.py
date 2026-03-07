@@ -50,6 +50,25 @@ class ConsolePanel(QFrame):
         self._chat_listener_started = False
         self._chat_listener_stop = threading.Event()
         self._build()
+        self._ensure_chat_listener()
+
+    def _extract_chat_message(self, event) -> str:
+        """Extract a readable chat message from different event payload shapes."""
+        try:
+            message = getattr(event, "message", None)
+            if message is None and isinstance(event, dict):
+                message = event.get("message")
+            if message is None:
+                data = getattr(event, "data", None)
+                if isinstance(data, dict):
+                    message = data.get("message") or data.get("text")
+            if message is None:
+                text = getattr(event, "text", None)
+                if text is not None:
+                    message = text
+            return str(message).strip() if message is not None else ""
+        except Exception:
+            return ""
 
     def _build(self) -> None:
         layout = QVBoxLayout()
@@ -366,7 +385,7 @@ class ConsolePanel(QFrame):
                             self._signals.append_text.emit(f"Chat listener error: {e}", "warning")
                             break
 
-                        message = str(getattr(event, "message", "")).strip()
+                        message = self._extract_chat_message(event)
                         if not message:
                             continue
                         self._signals.append_text.emit(f"[MC Chat] {message}", "text_secondary")
@@ -409,7 +428,8 @@ class ConsolePanel(QFrame):
                 for job in jobs:
                     cmd = getattr(job, "command", [])
                     cmd_str = " ".join(str(c) for c in cmd) if isinstance(cmd, list) else str(cmd)
-                    if rel_no_ext in cmd_str or name.replace(".py", "") in cmd_str:
+                    script_stem = script.stem
+                    if rel_no_ext in cmd_str or script_stem in cmd_str:
                         jid = getattr(job, "job_id", "?")
                         status = getattr(job, "status", "?")
                         self.log(f"   Job #{jid}  status: {status}", "accent")

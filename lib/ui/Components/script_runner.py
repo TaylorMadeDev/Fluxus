@@ -134,7 +134,7 @@ class ScriptRunner(QFrame):
         root = Path(self._root)
         if root.is_dir():
             scripts = sorted(
-                [f for f in root.rglob("*.py") if f.is_file()],
+                [f for f in root.rglob("*.[p][y]*") if f.is_file() and f.suffix in (".py", ".pyj")],
                 key=lambda p: p.name.lower()
             )
             for s in scripts:
@@ -171,7 +171,8 @@ class ScriptRunner(QFrame):
 
     def _run_tests(self) -> None:
         root = Path(self._root)
-        for s in sorted(root.rglob("test_*.py")):
+        test_files = [f for f in root.rglob("test_*") if f.suffix in (".py", ".pyj")]
+        for s in sorted(test_files):
             self.run_requested.emit(str(s))
 
     def _open_folder(self) -> None:

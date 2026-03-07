@@ -1,0 +1,426 @@
+# Pathfinder Pyjinn — safer A* pathfinder walker
+#
+# @ui.title "Pathfinder Walk (Pyjinn Safe)"
+# @param int target_x 0 -- Destination X
+# @param int target_y 64 -- Destination Y (feet level)
+# @param int target_z 0 -- Destination Z
+# @param bool use_current_y true -- Ignore target_y and path on your current Y
+# @param int max_search_distance 40 -- Max horizontal search distance in blocks
+# @param int max_nodes 3000 -- Safety cap for A* explored nodes
+# @param bool sprint true -- Sprint while walking
+# @param float arrival_radius 0.55 -- Distance to waypoint before advancing
+# @param float node_timeout_sec 4.0 -- Max seconds trying each waypoint
+# @param int look_ahead_nodes 2 -- How many nodes ahead to aim camera while moving
+# @param float eye_height 1.52 -- Eye-level camera target height above feet
+
+from system.pyj.minescript import *
+
+Math = JavaClass("java.lang.Math")
+System = JavaClass("java.lang.System")
+Thread = JavaClass("java.lang.Thread")
+
+
+def _param(name, default):
+  return globals().get(name, default)
+
+
+def _as_bool(value):
+  if isinstance(value, bool):
+    return value
+  if value is None:
+    return False
+  v = str(value).strip().lower()
+  return v in ("1", "true", "yes", "on")
+
+
+target_x = _param("target_x", 0)
+target_y = _param("target_y", 64)
+target_z = _param("target_z", 0)
+use_current_y = _as_bool(_param("use_current_y", True))
+max_search_distance = _param("max_search_distance", 40)
+max_nodes = _param("max_nodes", 3000)
+sprint = _param("sprint", True)
+arrival_radius = _param("arrival_radius", 0.55)
+node_timeout_sec = _param("node_timeout_sec", 4.0)
+look_ahead_nodes = _param("look_ahead_nodes", 2)
+eye_height = _param("eye_height", 1.52)
+
+
+PASSABLE_BLOCKS = {
+  "minecraft:air",
+  "minecraft:cave_air",
+  "minecraft:void_air",
+  "minecraft:grass",
+  "minecraft:tall_grass",
+  "minecraft:fern",
+  "minecraft:large_fern",
+  "minecraft:dead_bush",
+  "minecraft:vine",
+  "minecraft:glow_lichen",
+  "minecraft:torch",
+  "minecraft:redstone_torch",
+  "minecraft:soul_torch",
+  "minecraft:wall_torch",
+  "minecraft:redstone_wall_torch",
+  "minecraft:soul_wall_torch",
+  "minecraft:tripwire",
+  "minecraft:string",
+  "minecraft:rail",
+  "minecraft:powered_rail",
+  "minecraft:detector_rail",
+  "minecraft:activator_rail",
+  "minecraft:ladder",
+  "minecraft:water",
+}
+
+LIQUID_BLOCKS = {
+  "minecraft:water",
+  "minecraft:lava",
+}
+
+
+def _now_sec():
+  return System.currentTimeMillis() / 1000.0
+
+
+def _sleep_sec(seconds):
+  ms = int(max(0.0, seconds) * 1000.0)
+  if ms > 0:
+    Thread.sleep(ms)
+
+
+def _clean_block_name(name):
+  if not name:
+    return ""
+  i = name.find("[")
+  if i >= 0:
+    return name[:i].strip()
+  return name.strip()
+
+
+def _is_passable(name):
+  b = _clean_block_name(name)
+  if b in PASSABLE_BLOCKS:
+    return True
+  if b.endswith("_air"):
+    return True
+  if "flower" in b or "sapling" in b or "carpet" in b:
+    return True
+  return False
+
+
+def _is_liquid(name):
+  return _clean_block_name(name) in LIQUID_BLOCKS
+
+
+def _heuristic(a, b):
+  return abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
+
+
+def _distance_xz(px, pz, tx, tz):
+  dx = tx - px
+  dz = tz - pz
+  return Math.sqrt(dx * dx + dz * dz)
+
+
+def _normalize_angle(a):
+  pi = Math.PI
+  two_pi = 2.0 * pi
+  while a <= -pi:
+    a += two_pi
+  while a > pi:
+    a -= two_pi
+  return a
+
+
+def _stop_movement():
+  player_press_forward(False)
+  player_press_left(False)
+  player_press_right(False)
+  player_press_jump(False)
+  player_press_sprint(False)
+
+
+class WorldSampler:
+  def __init__(self):
+    self._cache = {}
+
+  def block(self, x, y, z):
+    key = (x, y, z)
+    if key in self._cache:
+      return self._cache[key]
+    value = getblock(x, y, z)
+    self._cache[key] = value
+    return value
+
+  def walkable(self, x, y, z):
+    feet = self.block(x, y, z)
+    head = self.block(x, y + 1, z)
+    floor = self.block(x, y - 1, z)
+    if not _is_passable(feet):
+      return False
+    if not _is_passable(head):
+      return False
+    if _is_passable(floor):
+      return False
+    if _is_liquid(floor):
+      return False
+    return True
+
+
+def _neighbors(node, sampler):
+  x, y, z = node
+  for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+    nx = x + dx
+    nz = z + dz
+    for ny in (y, y + 1, y - 1):
+      if abs(ny - y) > 1:
+        continue
+      if sampler.walkable(nx, ny, nz):
+        yield (nx, ny, nz)
+        break
+
+
+def astar_path(start, goal, sampler, max_nodes_count, max_search_dist, max_search_seconds):
+  search_deadline = _now_sec() + max(0.5, float(max_search_seconds))
+  sx, _, sz = start
+  gx, _, gz = goal
+
+  min_x = min(sx, gx) - max_search_dist
+  max_x = max(sx, gx) + max_search_dist
+  min_z = min(sz, gz) - max_search_dist
+  max_z = max(sz, gz) + max_search_dist
+
+  def in_bounds(node):
+    x, _, z = node
+    return min_x <= x <= max_x and min_z <= z <= max_z
+
+  open_nodes = [(start, 0.0, _heuristic(start, goal))]  # (node, g, f)
+  came_from = {}
+  g_score = {start: 0.0}
+  explored = 0
+
+  while open_nodes:
+    if _now_sec() > search_deadline:
+      echo("[Pathfinder/Pyjinn] Search timed out. Try a closer target.")
+      break
+
+    best_i = 0
+    best_f = open_nodes[0][2]
+    i = 1
+    while i < len(open_nodes):
+      if open_nodes[i][2] < best_f:
+        best_i = i
+        best_f = open_nodes[i][2]
+      i += 1
+
+    current, current_g, _ = open_nodes.pop(best_i)
+
+    if current == goal:
+      path = [current]
+      while current in came_from:
+        current = came_from[current]
+        path.append(current)
+      path.reverse()
+      return path
+
+    explored += 1
+    if explored > max_nodes_count:
+      break
+
+    for nxt in _neighbors(current, sampler):
+      if not in_bounds(nxt):
+        continue
+
+      step_cost = 1.25 if nxt[1] != current[1] else 1.0
+      tentative_g = current_g + step_cost
+      prev_g = g_score.get(nxt)
+      if prev_g is None or tentative_g < prev_g:
+        came_from[nxt] = current
+        g_score[nxt] = tentative_g
+        f = tentative_g + _heuristic(nxt, goal)
+
+        replaced = False
+        j = 0
+        while j < len(open_nodes):
+          if open_nodes[j][0] == nxt:
+            open_nodes[j] = (nxt, tentative_g, f)
+            replaced = True
+            break
+          j += 1
+        if not replaced:
+          open_nodes.append((nxt, tentative_g, f))
+
+  return None
+
+
+def walk_path(path, sprinting, arrival, node_timeout, look_ahead, eye_y):
+  echo(f"[Pathfinder/Pyjinn] Following {len(path)} nodes...")
+
+  try:
+    current_index = 1
+    current_deadline = _now_sec() + max(0.5, node_timeout)
+    best_dist = 999999.0
+    stalled_ticks = 0
+    previous_heading = None
+    smoothed_aim_x = None
+    smoothed_aim_z = None
+
+    player_press_forward(True)
+
+    while current_index < len(path):
+      tx, ty, tz = path[current_index]
+      waypoint_x = tx + 0.5
+      waypoint_z = tz + 0.5
+
+      px, py, pz = player_position()
+      dist = _distance_xz(px, pz, waypoint_x, waypoint_z)
+
+      if dist <= arrival:
+        current_index += 1
+        current_deadline = _now_sec() + max(0.5, node_timeout)
+        best_dist = 999999.0
+        stalled_ticks = 0
+        continue
+
+      if _now_sec() > current_deadline:
+        echo(f"[Pathfinder/Pyjinn] Timed out on node {current_index}/{len(path)-1}; skipping...")
+        current_index += 1
+        current_deadline = _now_sec() + max(0.5, node_timeout)
+        best_dist = 999999.0
+        stalled_ticks = 0
+        continue
+
+      max_look = max(1, int(look_ahead))
+      end_index = min(len(path) - 1, current_index + max_look)
+      aim_index = current_index
+      i = current_index
+      while i <= end_index:
+        test_x, _, test_z = path[i]
+        test_dist = _distance_xz(px, pz, test_x + 0.5, test_z + 0.5)
+        if test_dist >= 1.2 or i == end_index:
+          aim_index = i
+          break
+        i += 1
+
+      ax, _, az = path[aim_index]
+      raw_aim_x = ax + 0.5
+      raw_aim_z = az + 0.5
+
+      if smoothed_aim_x is None:
+        smoothed_aim_x = raw_aim_x
+        smoothed_aim_z = raw_aim_z
+      else:
+        alpha = 0.35
+        smoothed_aim_x += (raw_aim_x - smoothed_aim_x) * alpha
+        smoothed_aim_z += (raw_aim_z - smoothed_aim_z) * alpha
+
+      heading = Math.atan2(smoothed_aim_z - pz, smoothed_aim_x - px)
+      turn_delta = 0.0 if previous_heading is None else abs(_normalize_angle(heading - previous_heading))
+      previous_heading = heading
+
+      bob = Math.sin(_now_sec() * 5.5) * 0.04
+      look_y = py + max(1.2, float(eye_y)) + bob
+      player_look_at(smoothed_aim_x, look_y, smoothed_aim_z)
+
+      slow_for_turn = turn_delta > 1.05 and dist < 2.2
+      player_press_sprint(_as_bool(sprinting) and not slow_for_turn)
+
+      current_block_y = int(Math.floor(py))
+      needs_upstep = ty > current_block_y
+      player_press_jump(needs_upstep)
+
+      if dist + 0.015 < best_dist:
+        best_dist = dist
+        stalled_ticks = 0
+      else:
+        stalled_ticks += 1
+
+      if stalled_ticks > 16:
+        player_press_jump(True)
+        _sleep_sec(0.09)
+        player_press_jump(False)
+        stalled_ticks = 0
+
+      _sleep_sec(0.05)
+
+    echo("[Pathfinder/Pyjinn] Arrived at destination.")
+  finally:
+    _stop_movement()
+
+
+def main():
+  px, py, pz = player_position()
+  start = (int(Math.floor(px)), int(Math.floor(py)), int(Math.floor(pz)))
+
+  goal_y = start[1] if use_current_y else int(target_y)
+  goal = (int(target_x), int(goal_y), int(target_z))
+
+  echo(
+    f"[Pathfinder/Pyjinn] Start: {start[0]}, {start[1]}, {start[2]} | "
+    f"Goal: {goal[0]}, {goal[1]}, {goal[2]}"
+  )
+
+  sampler = WorldSampler()
+
+  if not sampler.walkable(*start):
+    echo("[Pathfinder/Pyjinn] Warning: current player block is not ideal for walking pathing.")
+
+  if not sampler.walkable(*goal):
+    echo("[Pathfinder/Pyjinn] Goal not directly walkable. Trying nearby standable block...")
+    found = None
+    r = 1
+    while r <= 3:
+      dx = -r
+      while dx <= r and found is None:
+        dz = -r
+        while dz <= r:
+          candidate = (goal[0] + dx, goal[1], goal[2] + dz)
+          if sampler.walkable(*candidate):
+            found = candidate
+            break
+          dz += 1
+        dx += 1
+      r += 1
+
+    if found is None:
+      echo("[Pathfinder/Pyjinn] Could not find a standable destination near target.")
+      return
+
+    goal = found
+    echo(f"[Pathfinder/Pyjinn] Using nearby walkable goal: {goal[0]}, {goal[1]}, {goal[2]}")
+
+  path = astar_path(
+    start,
+    goal,
+    sampler,
+    max(1000, int(max_nodes)),
+    max(16, int(max_search_distance)),
+    2.0,
+  )
+
+  if not path:
+    echo("[Pathfinder/Pyjinn] No path found within limits.")
+    return
+
+  if len(path) > 1200:
+    echo("[Pathfinder/Pyjinn] Path too long for safe realtime walking. Move closer and retry.")
+    return
+
+  echo(f"[Pathfinder/Pyjinn] Path found with {len(path)} nodes.")
+  walk_path(
+    path,
+    _as_bool(sprint),
+    max(0.2, float(arrival_radius)),
+    max(0.5, float(node_timeout_sec)),
+    max(0, int(look_ahead_nodes)),
+    max(1.2, float(eye_height)),
+  )
+
+
+try:
+  main()
+except Exception as e:
+  echo(f"[Pathfinder/Pyjinn] Error: {e}")
+finally:
+  _stop_movement()
